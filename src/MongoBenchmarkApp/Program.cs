@@ -30,13 +30,26 @@ namespace MongoDbBenchmark
         {          
             var client = new MongoClient("mongodb://root:strongpassword@localhost:27017");
             var database = client.GetDatabase("benchmarkDb");
-            _collection = database.GetCollection<MyDocument>("documents");
+            _collection = database.GetCollection<MyDocument>("documents_mongo");
 
             // Assuming you have a DbContext setup for Entity Framework
             _dbContext = new MyDbContext();
 
             // Setup code here, like ensuring the database is in a known state
         }
+
+        [GlobalCleanup]
+        public void Cleanup()
+        {
+            // Using MongoDB driver to clean up
+            _collection.DeleteMany(Builders<MyDocument>.Filter.Empty); // Deletes all documents
+
+            // Using Entity Framework to clean up
+            var allDocuments = _dbContext.Documents.ToList();
+            _dbContext.Documents.RemoveRange(allDocuments);
+            _dbContext.SaveChanges();
+        }
+
 
         [Benchmark]
         public void InsertDocumentMongoDriver()
@@ -68,7 +81,7 @@ namespace MongoDbBenchmark
         public void BatchInsertMongoDriver()
         {
             var documents = new List<MyDocument>();
-            for (int i = 0; i < 1000; i++) // Assuming a batch of 1000 documents
+            for (int i = 0; i < 1000; i++) // A batch of 1000 documents
             {
                 documents.Add(new MyDocument { Id = MongoDB.Bson.ObjectId.GenerateNewId(), Name = $"Test{i}", Value = $"SomeValue{i}" });
             }
@@ -79,13 +92,47 @@ namespace MongoDbBenchmark
         public void BatchInsertEntityFramework()
         {
             var documents = new List<MyDocument>();
-            for (int i = 0; i < 1000; i++) // Assuming a batch of 1000 documents
+            for (int i = 0; i < 1000; i++) // A batch of 1000 documents
             {
                 documents.Add(new MyDocument { Id = MongoDB.Bson.ObjectId.GenerateNewId(), Name = $"Test{i}", Value = $"SomeValue{i}" });
             }
             _dbContext.Documents.AddRange(documents);
             _dbContext.SaveChanges();
         }
+
+        [Benchmark]
+        public void DeleteDocumentMongoDriver()
+        {
+            var filter = Builders<MyDocument>.Filter.Eq("Name", "Test");
+            _collection.DeleteOne(filter);
+        }
+
+        [Benchmark]
+        public void DeleteDocumentEntityFramework()
+        {
+            var document = _dbContext.Documents.FirstOrDefault(d => d.Name == "Test");
+            if (document != null)
+            {
+                _dbContext.Documents.Remove(document);
+                _dbContext.SaveChanges();
+            }
+        }
+
+        [Benchmark]
+        public void BatchDeleteMongoDriver()
+        {
+            var filter = Builders<MyDocument>.Filter.Empty; 
+            _collection.DeleteMany(filter);
+        }
+
+        [Benchmark]
+        public void BatchDeleteEntityFramework()
+        {
+            var documents = _dbContext.Documents.ToList();
+            _dbContext.Documents.RemoveRange(documents);
+            _dbContext.SaveChanges();
+        }
+
 
     }
 
@@ -110,7 +157,7 @@ namespace MongoDbBenchmark
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<MyDocument>().HasKey(d => d.Id);
-            modelBuilder.Entity<MyDocument>().ToCollection("documents");            
+            modelBuilder.Entity<MyDocument>().ToCollection("documents_ef");            
             base.OnModelCreating(modelBuilder);
         }
     }
