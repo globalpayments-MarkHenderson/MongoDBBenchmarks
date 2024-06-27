@@ -19,7 +19,7 @@ namespace MongoDbBenchmark
             BenchmarkRunner.Run<MongoDbBenchmarks>();
         }
     }
-
+   
     public class MongoDbBenchmarks
     {
         private IMongoCollection<MyDocument> _collection;
@@ -27,7 +27,7 @@ namespace MongoDbBenchmark
 
         [GlobalSetup]
         public void Setup()
-        {
+        {          
             var client = new MongoClient("mongodb://root:strongpassword@localhost:27017");
             var database = client.GetDatabase("benchmarkDb");
             _collection = database.GetCollection<MyDocument>("documents");
@@ -41,13 +41,13 @@ namespace MongoDbBenchmark
         [Benchmark]
         public void InsertDocumentMongoDriver()
         {
-            _collection.InsertOne(new MyDocument { Id = Guid.NewGuid(), Name = "Test", Value = "SomeValue" });
+            _collection.InsertOne(new MyDocument { Id = MongoDB.Bson.ObjectId.GenerateNewId(), Name = "Test", Value = "SomeValue" });
         }
 
         [Benchmark]
         public void InsertDocumentEntityFramework()
         {
-            _dbContext.Documents.Add(new MyDocument { Id = Guid.NewGuid(),  Name = "Test", Value = "SomeValue" });
+            _dbContext.Documents.Add(new MyDocument { Id = MongoDB.Bson.ObjectId.GenerateNewId(),  Name = "Test", Value = "SomeValue" });
             _dbContext.SaveChanges();
         }
 
@@ -70,7 +70,7 @@ namespace MongoDbBenchmark
             var documents = new List<MyDocument>();
             for (int i = 0; i < 1000; i++) // Assuming a batch of 1000 documents
             {
-                documents.Add(new MyDocument { Id = Guid.NewGuid(), Name = $"Test{i}", Value = $"SomeValue{i}" });
+                documents.Add(new MyDocument { Id = MongoDB.Bson.ObjectId.GenerateNewId(), Name = $"Test{i}", Value = $"SomeValue{i}" });
             }
             _collection.InsertMany(documents);
         }
@@ -81,7 +81,7 @@ namespace MongoDbBenchmark
             var documents = new List<MyDocument>();
             for (int i = 0; i < 1000; i++) // Assuming a batch of 1000 documents
             {
-                documents.Add(new MyDocument { Id = Guid.NewGuid(), Name = $"Test{i}", Value = $"SomeValue{i}" });
+                documents.Add(new MyDocument { Id = MongoDB.Bson.ObjectId.GenerateNewId(), Name = $"Test{i}", Value = $"SomeValue{i}" });
             }
             _dbContext.Documents.AddRange(documents);
             _dbContext.SaveChanges();
@@ -91,7 +91,7 @@ namespace MongoDbBenchmark
 
     public class MyDocument
     {
-        public Guid Id { get; set; }
+        public MongoDB.Bson.ObjectId Id { get; set; }
         public string Name { get; set; }
         public string Value { get; set; }
     }
@@ -109,8 +109,8 @@ namespace MongoDbBenchmark
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<MyDocument>().ToCollection("documents");
             modelBuilder.Entity<MyDocument>().HasKey(d => d.Id);
+            modelBuilder.Entity<MyDocument>().ToCollection("documents");            
             base.OnModelCreating(modelBuilder);
         }
     }
