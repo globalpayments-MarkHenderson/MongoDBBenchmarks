@@ -1,0 +1,6 @@
+
+/.vs
+/data
+**/bin/
+**/obj/
+/BenchmarkDotNet.Artifacts
