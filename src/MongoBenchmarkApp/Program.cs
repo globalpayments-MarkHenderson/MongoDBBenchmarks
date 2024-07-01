@@ -9,6 +9,7 @@ using System;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using MongoDB.EntityFrameworkCore.Extensions;
+using MongoDB.Bson;
 
 namespace MongoDbBenchmark
 {
@@ -99,6 +100,55 @@ namespace MongoDbBenchmark
             _dbContext.Documents.AddRange(documents);
             _dbContext.SaveChanges();
         }
+
+        [Benchmark]
+        public void UpdateDocumentMongoDriver()
+        {
+            var filter = Builders<MyDocument>.Filter.Eq(doc => doc.Name, "Test");
+            var update = Builders<MyDocument>.Update.Set(doc => doc.Value, "UpdatedValue");
+            _collection.UpdateOne(filter, update);
+        }
+
+        [Benchmark]
+        public void UpdateDocumentEntityFramework()
+        {
+            var document = _dbContext.Documents.FirstOrDefault(d => d.Name == "Test");
+            if (document != null)
+            {
+                document.Value = "UpdatedValue";
+                _dbContext.SaveChanges();
+            }
+        }
+
+        [Benchmark]
+        public void BatchUpdateMongoDriver()
+        {            
+            var idsToUpdate = _collection.Find(Builders<MyDocument>.Filter.Empty)
+                                         .Limit(100)
+                                         .ToList()
+                                         .Select(doc => doc.Id);
+
+            
+            var filter = Builders<MyDocument>.Filter.In(doc => doc.Id, idsToUpdate);
+            var update = Builders<MyDocument>.Update.Set(doc => doc.Value, "BatchUpdatedValue");
+            _collection.UpdateMany(filter, update);
+        }
+
+
+
+
+        [Benchmark]
+        public void BatchUpdateEntityFramework()
+        {
+            var documents = _dbContext.Documents.OrderBy(d => d.Id).Take(100).ToList(); // Ensure there are 100 records
+            foreach (var document in documents)
+            {
+                document.Value = "BatchUpdatedValue";
+            }
+            _dbContext.SaveChanges();
+        }
+
+
 
         [Benchmark]
         public void DeleteDocumentMongoDriver()
